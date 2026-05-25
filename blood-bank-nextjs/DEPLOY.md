@@ -34,8 +34,15 @@ No Render. No paid email service.
 1. Open your Supabase project.
 2. **Settings → Database** → copy the **Transaction pooler** URI (port **6543**).
 3. Paste it as `DATABASE_URL` in Vercel (and local `.env`).
+4. Ensure the URL includes `?pgbouncer=true` (the app adds it automatically if missing).
+
+**Do not** use the direct `db.*.supabase.co:5432` URL on Vercel — serverless functions will fail to connect or throw "prepared statement" errors.
+
+After deploy, open `https://your-app.vercel.app/api/health` — you should see `"database":"connected"`.
 
 If tables are missing, run `../backend/sql/schema.sql` in Supabase **SQL Editor**.
+
+If registration fails for **Receiver** accounts, run `../backend/sql/migrate_add_receiver_role.sql` in the SQL Editor (or `node scripts/run-receiver-migration.mjs` locally).
 
 Optional: enable **Realtime** on `blood_requests` for live SOS alerts.
 

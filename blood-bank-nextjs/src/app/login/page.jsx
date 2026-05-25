@@ -18,14 +18,20 @@ function LoginContent() {
     }
   }, [searchParams]);
 
+  const fillHospitalDemo = () => {
+    setEmail("admin_gmc@test.com");
+    setPassword("hospital");
+    setError("");
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     try {
-      await login(email, password);
+      await login(email.trim(), password.trim());
       navigate("/");
     } catch (err) {
-      setError(err.response?.data?.error || "Login failed");
+      setError(err.message || "Login failed");
     }
   };
 
@@ -73,9 +79,41 @@ function LoginContent() {
               Log In securely
             </button>
             <div style={{textAlign: 'center', fontSize: '0.875rem', color: 'var(--text-secondary)'}}>
-              Don't have an account? <Link href="/register" style={{color: 'var(--accent-color)', textDecoration: 'none', fontWeight: 600}}>Register now</Link>
+              Don&apos;t have an account? <Link href="/register" style={{color: 'var(--accent-color)', textDecoration: 'none', fontWeight: 600}}>Register now</Link>
             </div>
           </form>
+
+          <div
+            className="alert"
+            style={{
+              maxWidth: '400px',
+              width: '100%',
+              margin: '24px auto 0',
+              fontSize: '0.85rem',
+              lineHeight: 1.6,
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border-color)',
+              color: 'var(--text-secondary)'
+            }}
+          >
+            <strong style={{ color: 'var(--text-primary)' }}>Pre-made hospital logins</strong> (from seed.sql — not created via Register):
+            <ul style={{ margin: '8px 0 0', paddingLeft: '1.25rem' }}>
+              <li>admin_gmc@test.com</li>
+              <li>admin_smgs@test.com</li>
+              <li>admin_narayana@test.com</li>
+            </ul>
+            <p style={{ margin: '10px 0 0' }}>
+              Password for all three: <strong style={{ color: 'var(--accent-color)' }}>hospital</strong> (8 letters — not &quot;hoaspital&quot;, not &quot;password&quot;, not your Supabase DB password).
+            </p>
+            <button
+              type="button"
+              className="btn"
+              onClick={fillHospitalDemo}
+              style={{ marginTop: '12px', width: '100%', border: '1px solid var(--border-color)' }}
+            >
+              Fill GMC hospital login
+            </button>
+          </div>
 
         </div>
       </div>

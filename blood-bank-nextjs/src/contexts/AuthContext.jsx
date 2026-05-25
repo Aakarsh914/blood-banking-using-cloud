@@ -1,6 +1,7 @@
 "use client";
 import { createContext, useState, useEffect } from "react";
 import apiClient from "../services/apiClient";
+import { formatApiError } from "@/lib/formatApiError";
 
 export const AuthContext = createContext({
   user: null,
@@ -45,9 +46,27 @@ export function AuthProvider({ children }) {
   }, [token]);
 
   const login = async (email, password) => {
-    const res = await apiClient.post("/auth/login", { email, password });
-    setToken(res.data.token);
-    setUser(res.data.user);
+    const trimmedEmail = String(email ?? "").trim().toLowerCase();
+    const trimmedPassword = String(password ?? "").trim();
+    try {
+      delete apiClient.defaults.headers.common.Authorization;
+      localStorage.removeItem("token");
+      const res = await apiClient.post("/auth/login", {
+        email: trimmedEmail,
+        password: trimmedPassword
+      });
+      if (!res.data?.token || !res.data?.user) {
+        throw new Error("Login response was incomplete. Redeploy the latest app and try again.");
+      }
+      setUser(res.data.user);
+      setToken(res.data.token);
+      setLoading(false);
+    } catch (err) {
+      const message = formatApiError(err);
+      const error = new Error(message);
+      error.cause = err;
+      throw error;
+    }
   };
 
   const requestOtp = async (email) => {
@@ -56,7 +75,14 @@ export function AuthProvider({ children }) {
   };
 
   const register = async ({ name, email, password, role, hospitalId, bloodGroup, otp }) => {
-    await apiClient.post("/auth/register", { name, email, password, role, hospitalId, bloodGroup, otp });
+    try {
+      await apiClient.post("/auth/register", { name, email, password, role, hospitalId, bloodGroup, otp });
+    } catch (err) {
+      const message = formatApiError(err);
+      const error = new Error(message);
+      error.cause = err;
+      throw error;
+    }
   };
 
   const logout = () => {

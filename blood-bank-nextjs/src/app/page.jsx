@@ -12,16 +12,7 @@ export default function Home() {
   const { user, logout, loading } = useContext(AuthContext);
   const router = useRouter();
 
-  useEffect(() => {
-    if (!loading && !user) {
-      router.replace("/login");
-    }
-  }, [user, loading, router]);
-
-  if (loading || !user) {
-    return <div className="app-container" style={{ textAlign: "center", marginTop: "50px" }}>Loading...</div>;
-  }
-  const [localUser, setLocalUser] = useState(user);
+  const [localUser, setLocalUser] = useState(null);
   const [inventory, setInventory] = useState([]);
   const [requests, setRequests] = useState([]);
   const [history, setHistory] = useState([]);
@@ -38,14 +29,14 @@ export default function Home() {
   const [requestStatusFilter, setRequestStatusFilter] = useState("ALL");
   const [requestGroupFilter, setRequestGroupFilter] = useState("ALL");
   const [form, setForm] = useState({
-    bankId: user?.hospitalId || "",
+    bankId: "",
     bloodGroup: "A+",
     component: "RBC",
     units: 1,
     expiresOn: ""
   });
   const [requestForm, setRequestForm] = useState({
-    hospitalId: user?.hospitalId || "",
+    hospitalId: "",
     bloodGroup: "O+",
     units: 1,
     urgency: "CRITICAL"
@@ -55,57 +46,19 @@ export default function Home() {
   const [toast, setToast] = useState(null);
   const [activeView, setActiveView] = useState("OVERVIEW");
 
-  const downloadRecordsCSV = () => {
-    const header = ["Type,ID,Details,Status,Date"];
-    const rows = [];
-    requests.forEach(r => rows.push(`Request,${r.id},${r.blood_group} ${r.units} Units,${r.status},${r.created_at}`));
-    inventory.forEach(r => rows.push(`Inventory,${r.id},${r.blood_group} ${r.component} ${r.units} Units,,${r.created_at}`));
-    appointments.forEach(r => rows.push(`Appointment,${r.id},${r.donor_name} ${r.donor_blood_group},${r.status},${r.scheduled_date || ''}`));
-    const csvContent = "data:text/csv;charset=utf-8," + header.concat(rows).join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "hospital_records.csv");
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-  };
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/login");
+    }
+  }, [user, loading, router]);
 
   useEffect(() => {
-    if (!user) return;
-
-    // Subscribe to Supabase Realtime for 'blood_requests' table inserts
-    const channel = supabase
-      .channel('public:blood_requests')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'blood_requests' }, payload => {
-        const data = payload.new;
-        if (data.urgency === 'CRITICAL') {
-           setToast({
-             type: 'SOS_ALERT',
-             message: `🚨 CRITICAL SOS: New request for ${data.units} Units of ${data.bloodGroup} urgently!`,
-             requestId: data.id,
-             requesterId: data.requesterId
-           });
-           loadData(); 
-           setTimeout(() => setToast(null), 15000);
-        }
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user]);
-
-  async function handleAcknowledgeSOS(requestId) {
-    try {
-      await apiClient.post(`/requests/${requestId}/respond`);
-      setToast(null);
-      setStatusMessage("Response successfully broadcasted!");
-    } catch (err) {
-      setStatusMessage("Failed to broadcast response.");
+    setLocalUser(user);
+    if (user?.hospitalId) {
+      setForm((f) => ({ ...f, bankId: user.hospitalId }));
+      setRequestForm((f) => ({ ...f, hospitalId: user.hospitalId }));
     }
-  }
+  }, [user]);
 
   async function loadData() {
     if (!user) return;
@@ -114,7 +67,7 @@ export default function Home() {
       try {
         await apiClient.get("/health");
       } catch {
-        /* wake Render if sleeping */
+        /* optional health ping */
       }
       const [inventoryRes, requestsRes, historyRes, appointmentsRes, hospitalsRes] = await Promise.all([
         apiClient.get("/inventory"),
@@ -137,7 +90,7 @@ export default function Home() {
         return;
       }
       if (e.code === "ECONNABORTED") {
-        setError("Server is waking up (free hosting). Wait 60 seconds, then refresh the page.");
+        setError("Server is waking up. Wait a moment, then refresh the page.");
       } else if (!e.response) {
         setError("Cannot reach the API. Check your connection and try again.");
       } else {
@@ -148,12 +101,63 @@ export default function Home() {
   }
 
   useEffect(() => {
-    setLocalUser(user);
+    if (!user) return;
+
+    const channel = supabase
+      .channel("public:blood_requests")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "blood_requests" }, (payload) => {
+        const data = payload.new;
+        if (data.urgency === "CRITICAL") {
+          setToast({
+            type: "SOS_ALERT",
+            message: `🚨 CRITICAL SOS: New request for ${data.units} Units of ${data.bloodGroup} urgently!`,
+            requestId: data.id,
+            requesterId: data.requesterId
+          });
+          loadData();
+          setTimeout(() => setToast(null), 15000);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user]);
 
   useEffect(() => {
     if (user) loadData();
   }, [user]);
+
+  if (loading || !user) {
+    return <div className="app-container" style={{ textAlign: "center", marginTop: "50px" }}>Loading...</div>;
+  }
+
+  const downloadRecordsCSV = () => {
+    const header = ["Type,ID,Details,Status,Date"];
+    const rows = [];
+    requests.forEach(r => rows.push(`Request,${r.id},${r.blood_group} ${r.units} Units,${r.status},${r.created_at}`));
+    inventory.forEach(r => rows.push(`Inventory,${r.id},${r.blood_group} ${r.component} ${r.units} Units,,${r.created_at}`));
+    appointments.forEach(r => rows.push(`Appointment,${r.id},${r.donor_name} ${r.donor_blood_group},${r.status},${r.scheduled_date || ''}`));
+    const csvContent = "data:text/csv;charset=utf-8," + header.concat(rows).join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "hospital_records.csv");
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
+  async function handleAcknowledgeSOS(requestId) {
+    try {
+      await apiClient.post(`/requests/${requestId}/respond`);
+      setToast(null);
+      setStatusMessage("Response successfully broadcasted!");
+    } catch (err) {
+      setStatusMessage("Failed to broadcast response.");
+    }
+  }
 
   if (['DONOR', 'RECEIVER'].includes(localUser?.role) && !localUser.aadharNumber) {
     return (
