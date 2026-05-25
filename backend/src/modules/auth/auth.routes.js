@@ -22,8 +22,8 @@ router.post("/request-otp", async (req, res, next) => {
       return res.status(400).json({ error: "Email is already registered" });
     }
 
-    // Generate 6 digit OTP (Hardcoded to 123456 for demo/Render free tier bypass)
-    const otp = "123456";
+    // Generate 6 digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
     // 10 mins expiry
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
