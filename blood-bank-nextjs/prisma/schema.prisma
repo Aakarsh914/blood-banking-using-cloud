@@ -1,0 +1,110 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model OtpVerification {
+  id         Int      @id @default(autoincrement())
+  email      String   @unique
+  otp        String
+  expiresAt  DateTime @map("expires_at")
+  
+  @@map("otp_verifications")
+}
+
+model Hospital {
+  id                   Int                   @id @default(autoincrement())
+  name                 String
+  city                 String
+  latitude             Float?
+  longitude            Float?
+  users                User[]
+  bloodInventory       BloodInventory[]
+  bloodRequests        BloodRequest[]
+  inventoryHistory     InventoryHistory[]
+  donationAppointments DonationAppointment[]
+
+  @@map("hospitals")
+}
+
+model User {
+  id                   Int                   @id @default(autoincrement())
+  email                String                @unique
+  passwordHash         String                @map("password_hash")
+  name                 String
+  role                 String                @default("DONOR") // DONOR, HOSPITAL, ADMIN, RECEIVER
+  hospitalId           Int?                  @map("hospital_id")
+  hospital             Hospital?             @relation(fields: [hospitalId], references: [id])
+  bloodGroup           String?               @map("blood_group")
+  aadharNumber         String?               @map("aadhar_number")
+  latitude             Float?
+  longitude            Float?
+  createdAt            DateTime              @default(now()) @map("created_at")
+  bloodRequests        BloodRequest[]
+  inventoryHistory     InventoryHistory[]
+  donationAppointments DonationAppointment[]
+
+  @@map("users")
+}
+
+model BloodInventory {
+  id         Int      @id @default(autoincrement())
+  bankId     Int      @map("bank_id")
+  bank       Hospital @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  bloodGroup String   @map("blood_group")
+  component  String
+  units      Int
+  expiresOn  DateTime @map("expires_on")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("blood_inventory")
+}
+
+model BloodRequest {
+  id          Int      @id @default(autoincrement())
+  requesterId Int?     @map("requester_id")
+  requester   User?    @relation(fields: [requesterId], references: [id])
+  hospitalId  Int      @map("hospital_id")
+  hospital    Hospital @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  bloodGroup  String   @map("blood_group")
+  units       Int
+  urgency     String   @default("NORMAL")
+  status      String   @default("PENDING")
+  token       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("blood_requests")
+}
+
+model InventoryHistory {
+  id         Int      @id @default(autoincrement())
+  userId     Int?     @map("user_id")
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String
+  bloodGroup String   @map("blood_group")
+  component  String
+  units      Int
+  bankId     Int      @map("bank_id")
+  bank       Hospital @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("inventory_history")
+}
+
+model DonationAppointment {
+  id            Int       @id @default(autoincrement())
+  donorId       Int       @map("donor_id")
+  donor         User      @relation(fields: [donorId], references: [id], onDelete: Cascade)
+  hospitalId    Int?      @map("hospital_id")
+  hospital      Hospital? @relation(fields: [hospitalId], references: [id])
+  donationType  String    @map("donation_type") // AT_HOSPITAL, AT_HOME
+  status        String    @default("PENDING") // PENDING, APPROVED, REJECTED, COMPLETED
+  scheduledDate DateTime? @map("scheduled_date")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  @@map("donation_appointments")
+}
