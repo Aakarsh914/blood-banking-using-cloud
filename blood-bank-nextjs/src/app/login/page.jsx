@@ -1,10 +1,14 @@
 "use client";
-import { useState, useEffect, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import React, { useState, useEffect, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { AuthContext } from "@/contexts/AuthContext";
 
 function LoginContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const { setSession } = React.useContext(AuthContext);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -56,8 +60,8 @@ function LoginContent() {
         throw new Error("Login succeeded but no token was returned.");
       }
 
-      localStorage.setItem("token", data.token);
-      window.location.href = "/";
+      setSession(data.token, data.user);
+      router.push("/");
     } catch (err) {
       setError(err?.message || "Login failed");
     } finally {

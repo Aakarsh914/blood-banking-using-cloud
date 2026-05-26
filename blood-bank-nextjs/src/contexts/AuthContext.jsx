@@ -73,6 +73,13 @@ export function AuthProvider({ children }) {
     }
   }, [token, user, loading, logout]);
 
+  const setSession = (newToken, newUser) => {
+    setToken(newToken);
+    setUser(newUser);
+    localStorage.setItem("token", newToken);
+    apiClient.defaults.headers.common.Authorization = `Bearer ${newToken}`;
+  };
+
   const login = async () => {
     throw new Error("Use the login page form to sign in.");
   };
@@ -86,7 +93,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, requestOtp, register, logout, loading }}>
+    <AuthContext.Provider value={{ user, token, setSession, login, requestOtp, register, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );
