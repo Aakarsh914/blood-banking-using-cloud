@@ -34,6 +34,7 @@ apiClient.interceptors.response.use(
       localStorage.removeItem("token");
       delete apiClient.defaults.headers.common.Authorization;
       const onLogin = window.location.pathname.includes("/login");
+      alert(`DEBUG: API returned 401 Unauthorized for path: ${path}. Forcing logout.`);
       if (!onLogin) {
         window.location.href = "/login?session=expired";
       }

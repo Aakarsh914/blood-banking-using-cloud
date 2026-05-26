@@ -44,6 +44,7 @@ export function AuthProvider({ children }) {
         setUser(decodedUser);
       } catch (e) {
         console.error("Invalid token on load", e);
+        alert(`DEBUG: Initial token decode failed! Error: ${e.message}`);
         localStorage.removeItem("token");
         delete apiClient.defaults.headers.common.Authorization;
       }
@@ -62,6 +63,7 @@ export function AuthProvider({ children }) {
           setUser(decodeTokenUser(token));
         } catch (e) {
           console.error("Invalid token", e);
+          alert(`DEBUG: Token decode failed! Error: ${e.message}`);
           logout();
         }
       }
