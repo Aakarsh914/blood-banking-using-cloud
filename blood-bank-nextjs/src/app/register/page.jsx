@@ -1,8 +1,7 @@
 "use client";
-import { useState, useContext } from "react";
-import { AuthContext } from "@/contexts/AuthContext";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import Link from "next/link";
+import { registerAccount, requestOtpEmail } from "@/lib/authApi";
 
 export default function Register() {
   const [step, setStep] = useState(1);
@@ -17,24 +16,23 @@ export default function Register() {
   });
   const [error, setError] = useState("");
   const [otpHint, setOtpHint] = useState("");
-  const [sendingOtp, setSendingOtp] = useState(false);
-  const { register, requestOtp } = useContext(AuthContext);
-  const navigate = useRouter();
+  const [busy, setBusy] = useState(false);
 
   const sendOtp = async () => {
     setError("");
     setOtpHint("");
-    setSendingOtp(true);
+    setBusy(true);
     try {
       const email = form.email.trim().toLowerCase();
+      if (!email) throw new Error("Email is required");
       setForm((f) => ({ ...f, email }));
-      await requestOtp(email);
+      await requestOtpEmail(email);
       setStep(2);
       setOtpHint("Check your inbox and spam folder. OTP expires in 10 minutes.");
     } catch (err) {
       setError(err.message || "Failed to request OTP.");
     } finally {
-      setSendingOtp(false);
+      setBusy(false);
     }
   };
 
@@ -46,39 +44,56 @@ export default function Register() {
   const handleRegister = async (e) => {
     e.preventDefault();
     setError("");
+    setBusy(true);
     try {
-      await register({
-        ...form,
-        email: form.email.trim().toLowerCase(),
-        name: form.name.trim(),
-        password: form.password.trim(),
-        otp: form.otp.trim(),
-        hospitalId: form.role === 'HOSPITAL' ? Number(form.hospitalId) : undefined,
-        bloodGroup: (form.role === 'DONOR' || form.role === 'RECEIVER') ? form.bloodGroup : undefined
+      await registerAccount({
+        name: form.name,
+        email: form.email,
+        password: form.password,
+        role: form.role,
+        otp: form.otp,
+        hospitalId: form.role === "HOSPITAL" ? Number(form.hospitalId) : undefined,
+        bloodGroup: form.role === "DONOR" || form.role === "RECEIVER" ? form.bloodGroup : undefined
       });
-      navigate("/login");
+      window.location.href = "/login?registered=1";
     } catch (err) {
       setError(err.message || "Registration failed");
+    } finally {
+      setBusy(false);
     }
   };
 
   return (
-    <div className="app-container" style={{maxWidth: '500px'}}>
+    <div className="app-container" style={{ maxWidth: "500px" }}>
       <div className="card">
-        <h1 style={{textAlign: 'center', marginBottom: '24px'}}>CREATE ACCOUNT {form.role === 'RECEIVER' ? 'AS RECEIVER' : 'AS DONOR'}</h1>
+        <h1 style={{ textAlign: "center", marginBottom: "24px" }}>
+          CREATE ACCOUNT {form.role === "RECEIVER" ? "AS RECEIVER" : "AS DONOR"}
+        </h1>
         {error && <div className="alert alert-error mb-4">{error}</div>}
-        
+
         {step === 1 ? (
           <form onSubmit={handleRequestOtp}>
             <div className="form-group mb-4">
               <label>Register As</label>
               <div className="flex gap-4">
                 <label className="flex items-center gap-2">
-                  <input type="radio" name="role" value="DONOR" checked={form.role === 'DONOR'} onChange={e => setForm({...form, role: e.target.value})} />
+                  <input
+                    type="radio"
+                    name="role"
+                    value="DONOR"
+                    checked={form.role === "DONOR"}
+                    onChange={(e) => setForm({ ...form, role: e.target.value })}
+                  />
                   Donor
                 </label>
                 <label className="flex items-center gap-2">
-                  <input type="radio" name="role" value="RECEIVER" checked={form.role === 'RECEIVER'} onChange={e => setForm({...form, role: e.target.value})} />
+                  <input
+                    type="radio"
+                    name="role"
+                    value="RECEIVER"
+                    checked={form.role === "RECEIVER"}
+                    onChange={(e) => setForm({ ...form, role: e.target.value })}
+                  />
                   Receiver
                 </label>
               </div>
@@ -86,81 +101,119 @@ export default function Register() {
 
             <div className="form-group mb-4">
               <label>Full Name</label>
-              <input className="input" type="text" value={form.name} onChange={e => setForm({...form, name: e.target.value})} required />
+              <input
+                className="input"
+                type="text"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                required
+              />
             </div>
-            
+
             <div className="form-group mb-4">
               <label>Email Address</label>
-              <input className="input" type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} required />
+              <input
+                className="input"
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                required
+                autoComplete="email"
+              />
             </div>
 
             <div className="form-group mb-4">
               <label>Password</label>
-              <input className="input" type="password" value={form.password} onChange={e => setForm({...form, password: e.target.value})} required />
+              <input
+                className="input"
+                type="password"
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                required
+                autoComplete="new-password"
+              />
             </div>
 
-
-            {['DONOR', 'RECEIVER'].includes(form.role) && (
+            {["DONOR", "RECEIVER"].includes(form.role) && (
               <div className="form-group mb-4">
                 <label>Blood Group</label>
-                <select className="select" value={form.bloodGroup} onChange={e => setForm({...form, bloodGroup: e.target.value})} required>
+                <select
+                  className="select"
+                  value={form.bloodGroup}
+                  onChange={(e) => setForm({ ...form, bloodGroup: e.target.value })}
+                  required
+                >
                   <option value="">Select...</option>
                   {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((group) => (
-                    <option key={group} value={group}>{group}</option>
+                    <option key={group} value={group}>
+                      {group}
+                    </option>
                   ))}
                 </select>
               </div>
             )}
 
-            <button className="btn btn-primary" type="submit" style={{width: '100%', marginBottom: '16px'}} disabled={sendingOtp}>
-              {sendingOtp ? "Sending OTP..." : "Continue (Send OTP)"}
+            <button
+              className="btn btn-primary"
+              type="submit"
+              style={{ width: "100%", marginBottom: "16px" }}
+              disabled={busy}
+            >
+              {busy ? "Sending OTP..." : "Continue (Send OTP)"}
             </button>
           </form>
         ) : (
           <form onSubmit={handleRegister}>
             <div className="alert alert-success mb-4 text-center">
               An OTP has been sent to <strong>{form.email}</strong>.
-              {otpHint && <p style={{ marginTop: "8px", marginBottom: 0, fontSize: "0.875rem" }}>{otpHint}</p>}
+              {otpHint && (
+                <p style={{ marginTop: "8px", marginBottom: 0, fontSize: "0.875rem" }}>{otpHint}</p>
+              )}
             </div>
             <div className="form-group mb-4">
               <label>Enter 6-digit OTP</label>
-              <input 
-                className="input" 
-                type="text" 
-                maxLength="6"
-                value={form.otp} 
-                onChange={e => setForm({...form, otp: e.target.value})} 
-                required 
-                style={{textAlign: 'center', fontSize: '1.5rem', letterSpacing: '4px'}}
+              <input
+                className="input"
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                value={form.otp}
+                onChange={(e) => setForm({ ...form, otp: e.target.value.replace(/\D/g, "") })}
+                required
+                style={{ textAlign: "center", fontSize: "1.5rem", letterSpacing: "4px" }}
               />
             </div>
             <div className="flex gap-2">
-              <button 
-                type="button" 
-                className="btn" 
-                style={{flex: 1, backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)'}} 
+              <button
+                type="button"
+                className="btn"
+                style={{ flex: 1, backgroundColor: "var(--bg-card)", border: "1px solid var(--border-color)" }}
                 onClick={() => setStep(1)}
+                disabled={busy}
               >
                 Back
               </button>
               <button
                 type="button"
                 className="btn"
-                style={{flex: 1, backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)'}}
+                style={{ flex: 1, backgroundColor: "var(--bg-card)", border: "1px solid var(--border-color)" }}
                 onClick={sendOtp}
-                disabled={sendingOtp}
+                disabled={busy}
               >
                 Resend OTP
               </button>
-              <button className="btn btn-primary" type="submit" style={{flex: 2}}>
-                Complete Registration
+              <button className="btn btn-primary" type="submit" style={{ flex: 2 }} disabled={busy}>
+                {busy ? "Saving…" : "Complete Registration"}
               </button>
             </div>
           </form>
         )}
 
-        <div style={{textAlign: 'center', fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '16px'}}>
-          Already have an account? <Link href="/login" style={{color: 'var(--accent-color)', textDecoration: 'none'}}>Log in</Link>
+        <div style={{ textAlign: "center", fontSize: "0.875rem", color: "var(--text-secondary)", marginTop: "16px" }}>
+          Already have an account?{" "}
+          <Link href="/login" style={{ color: "var(--accent-color)", textDecoration: "none" }}>
+            Log in
+          </Link>
         </div>
       </div>
     </div>

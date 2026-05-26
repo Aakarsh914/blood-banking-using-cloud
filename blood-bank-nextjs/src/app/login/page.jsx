@@ -1,20 +1,19 @@
 "use client";
-import { useState, useContext, useEffect, Suspense } from "react";
-import { AuthContext } from "@/contexts/AuthContext";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { loginRequest, saveSession } from "@/lib/authApi";
 
 function LoginContent() {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const { login } = useContext(AuthContext);
-  const navigate = useRouter();
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (searchParams.get("session") === "expired") {
-      setError("Your session expired (often after a server redeploy). Please log in again.");
+      setError("Your session expired. Please log in again.");
     }
   }, [searchParams]);
 
@@ -27,94 +26,121 @@ function LoginContent() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setSubmitting(true);
     try {
-      await login(email.trim(), password.trim());
-      navigate("/");
+      localStorage.removeItem("token");
+      const data = await loginRequest(email, password);
+      if (!data?.token) {
+        throw new Error("Login succeeded but no token was returned.");
+      }
+      saveSession(data.token);
+      window.location.href = "/";
     } catch (err) {
       setError(err.message || "Login failed");
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
-    <div className="app-container" style={{maxWidth: '1200px'}}>
+    <div className="app-container" style={{ maxWidth: "1200px" }}>
       <div className="login-split">
         <div className="login-image-section">
           <img src="/blood_donation_hero.png" alt="Blood Donation Concept" className="login-img" />
           <div className="login-brand-text">
-            <h2 style={{color: 'white', marginBottom: '0.5rem'}}>Blood Bank Cloud</h2>
-            <p style={{color: '#fca5a5', maxWidth: '300px', margin: '0 auto'}}>Connecting heroes to patients globally in real-time.</p>
+            <h2 style={{ color: "white", marginBottom: "0.5rem" }}>Blood Bank Cloud</h2>
+            <p style={{ color: "#fca5a5", maxWidth: "300px", margin: "0 auto" }}>
+              Connecting heroes to patients globally in real-time.
+            </p>
           </div>
         </div>
 
         <div className="login-form-section">
-          <h1 style={{textAlign: 'center', marginBottom: '8px'}}>Welcome Back</h1>
-          <p style={{textAlign: 'center', color: 'var(--text-secondary)', marginBottom: '32px'}}>Sign in to your account to continue</p>
-          
-          {error && <div className="alert alert-error" style={{animation: 'fadeIn 0.3s'}}>{error}</div>}
-          
-          <form onSubmit={handleSubmit} style={{maxWidth: '400px', width: '100%', margin: '0 auto'}}>
+          <h1 style={{ textAlign: "center", marginBottom: "8px" }}>Welcome Back</h1>
+          <p style={{ textAlign: "center", color: "var(--text-secondary)", marginBottom: "32px" }}>
+            Sign in to your account to continue
+          </p>
+
+          {error && (
+            <div className="alert alert-error" style={{ animation: "fadeIn 0.3s" }}>
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} style={{ maxWidth: "400px", width: "100%", margin: "0 auto" }}>
             <div className="form-group mb-4">
               <label>Email Address</label>
-              <input 
-                className="input input-animated" 
-                type="email" 
-                value={email} 
-                onChange={e => setEmail(e.target.value)} 
-                required 
+              <input
+                className="input input-animated"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
                 placeholder="Enter your email"
               />
             </div>
             <div className="form-group mb-4">
               <label>Password</label>
-              <input 
-                className="input input-animated" 
-                type="password" 
-                value={password} 
-                onChange={e => setPassword(e.target.value)} 
-                required 
+              <input
+                className="input input-animated"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
                 placeholder="••••••••"
               />
             </div>
-            <button className="btn btn-primary btn-animated" type="submit" style={{width: '100%', marginBottom: '24px', padding: '1rem'}}>
-              Log In securely
+            <button
+              className="btn btn-primary btn-animated"
+              type="submit"
+              disabled={submitting}
+              style={{ width: "100%", marginBottom: "24px", padding: "1rem" }}
+            >
+              {submitting ? "Logging in…" : "Log In securely"}
             </button>
-            <div style={{textAlign: 'center', fontSize: '0.875rem', color: 'var(--text-secondary)'}}>
-              Don&apos;t have an account? <Link href="/register" style={{color: 'var(--accent-color)', textDecoration: 'none', fontWeight: 600}}>Register now</Link>
+            <div style={{ textAlign: "center", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
+              Don&apos;t have an account?{" "}
+              <Link href="/register" style={{ color: "var(--accent-color)", textDecoration: "none", fontWeight: 600 }}>
+                Register now
+              </Link>
             </div>
           </form>
 
           <div
             className="alert"
             style={{
-              maxWidth: '400px',
-              width: '100%',
-              margin: '24px auto 0',
-              fontSize: '0.85rem',
+              maxWidth: "400px",
+              width: "100%",
+              margin: "24px auto 0",
+              fontSize: "0.85rem",
               lineHeight: 1.6,
-              background: 'var(--bg-card)',
-              border: '1px solid var(--border-color)',
-              color: 'var(--text-secondary)'
+              background: "var(--bg-card)",
+              border: "1px solid var(--border-color)",
+              color: "var(--text-secondary)"
             }}
           >
-            <strong style={{ color: 'var(--text-primary)' }}>Pre-made hospital logins</strong> (from seed.sql — not created via Register):
-            <ul style={{ margin: '8px 0 0', paddingLeft: '1.25rem' }}>
-              <li>admin_gmc@test.com</li>
-              <li>admin_smgs@test.com</li>
-              <li>admin_narayana@test.com</li>
-            </ul>
-            <p style={{ margin: '10px 0 0' }}>
-              Password for all three: <strong style={{ color: 'var(--accent-color)' }}>hospital</strong> (8 letters — not &quot;hoaspital&quot;, not &quot;password&quot;, not your Supabase DB password).
+            <strong style={{ color: "var(--text-primary)" }}>Hospital demo login</strong>
+            <p style={{ margin: "8px 0 0" }}>
+              Email: <code>admin_gmc@test.com</code>
+              <br />
+              Password: <code>hospital</code> (not your Supabase password)
             </p>
             <button
               type="button"
               className="btn"
               onClick={fillHospitalDemo}
-              style={{ marginTop: '12px', width: '100%', border: '1px solid var(--border-color)' }}
+              style={{ marginTop: "12px", width: "100%", border: "1px solid var(--border-color)" }}
             >
               Fill GMC hospital login
             </button>
+            <p style={{ marginTop: "12px", fontSize: "0.8rem" }}>
+              <a href="/api/setup-check" target="_blank" rel="noreferrer">
+                Check database status
+              </a>
+            </p>
           </div>
-
         </div>
       </div>
     </div>
