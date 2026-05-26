@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { databaseConfigError } from "@/lib/databaseUrl";
+import { ensureDbSchema } from "@/lib/ensureDbSchema";
 import { getPrisma } from "@/lib/prisma";
 
 export async function GET() {
@@ -27,13 +28,36 @@ export async function GET() {
 
   try {
     const prisma = getPrisma();
+    await ensureDbSchema(prisma);
     await prisma.$queryRaw`SELECT 1`;
     const [users, hospitals, otpPending] = await Promise.all([
       prisma.user.count(),
       prisma.hospital.count(),
       prisma.otpVerification.count()
     ]);
-    result.supabase = { connected: true, users, hospitals, otpPending };
+    const columnCheck = await prisma.$queryRaw`
+      SELECT table_name, column_name FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND (
+          (table_name = 'blood_requests' AND column_name IN ('requester_id', 'token'))
+          OR (table_name = 'hospitals' AND column_name IN ('latitude', 'longitude'))
+        )`;
+    const found = new Set(columnCheck.map((r) => `${r.table_name}.${r.column_name}`));
+    const required = [
+      "blood_requests.requester_id",
+      "blood_requests.token",
+      "hospitals.latitude",
+      "hospitals.longitude"
+    ];
+    const missing = required.filter((c) => !found.has(c));
+
+    result.supabase = { connected: true, users, hospitals, otpPending, schemaOk: missing.length === 0, missingColumns: missing };
+    if (missing.length > 0) {
+      result.ok = false;
+      result.hints.push(
+        `Database schema is outdated. Missing: ${missing.join(", ")}. Run backend/sql migrations in Supabase SQL Editor or: node blood-bank-nextjs/scripts/run-all-schema-migrations.mjs`
+      );
+    }
   } catch (err) {
     result.ok = false;
     result.supabase.connected = false;

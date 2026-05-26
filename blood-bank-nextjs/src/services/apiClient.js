@@ -12,6 +12,11 @@ apiClient.interceptors.request.use((config) => {
   const path = config.url || "";
   if (path.includes("/auth/login") || path.includes("/auth/register") || path.includes("/auth/request-otp")) {
     delete config.headers.Authorization;
+    return config;
+  }
+  const stored = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  if (stored) {
+    config.headers.Authorization = `Bearer ${stored}`;
   }
   return config;
 });

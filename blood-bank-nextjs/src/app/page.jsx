@@ -69,13 +69,32 @@ export default function Home() {
       } catch {
         /* optional health ping */
       }
-      const [inventoryRes, requestsRes, historyRes, appointmentsRes, hospitalsRes] = await Promise.all([
+      const labels = ["inventory", "requests", "history", "appointments", "hospitals"];
+      const results = await Promise.allSettled([
         apiClient.get("/inventory"),
         apiClient.get("/requests"),
         apiClient.get("/inventory/history"),
         apiClient.get("/appointments"),
         apiClient.get("/hospitals")
       ]);
+      const failed = results
+        .map((r, i) => (r.status === "rejected" ? labels[i] : null))
+        .filter(Boolean);
+      if (failed.length > 0) {
+        const first = results.find((r) => r.status === "rejected");
+        const err = first?.reason;
+        const apiErr = err?.response?.data?.error;
+        const hint = err?.response?.data?.hint;
+        throw Object.assign(err || new Error("API error"), {
+          response: err?.response,
+          message: apiErr
+            ? `Failed: ${failed.join(", ")} — ${apiErr}${hint ? ` (${hint})` : ""}`
+            : `Failed to load: ${failed.join(", ")}`
+        });
+      }
+      const [inventoryRes, requestsRes, historyRes, appointmentsRes, hospitalsRes] = results.map(
+        (r) => r.value
+      );
       setInventory(inventoryRes.data);
       setRequests(requestsRes.data);
       setHistory(historyRes.data);

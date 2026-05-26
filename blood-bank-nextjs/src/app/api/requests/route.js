@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 import crypto from "crypto";
 import { getPrisma } from "@/lib/prisma";
+import { ensureDbSchema } from "@/lib/ensureDbSchema";
 import { NextResponse } from "next/server";
 import { requireUser, requireRole } from "@/lib/auth";
 import { sendSosEmail } from "@/lib/mailer";
@@ -11,6 +12,7 @@ export async function GET(req) {
   if (error) return error;
 
   try {
+    await ensureDbSchema(prisma);
     let where = {};
     if (user.role === "HOSPITAL") {
       where = { hospitalId: user.hospitalId };
@@ -45,7 +47,14 @@ export async function GET(req) {
     return NextResponse.json(formatted);
   } catch (err) {
     console.error("Fetch requests error:", err);
-    return NextResponse.json({ error: "Failed to fetch requests" }, { status: 500 });
+    const hint =
+      err?.code === "P2022"
+        ? "Database schema mismatch. Open /api/setup-check and run schema migrations."
+        : undefined;
+    return NextResponse.json(
+      { error: "Failed to fetch requests", code: err?.code, hint },
+      { status: 500 }
+    );
   }
 }
 
