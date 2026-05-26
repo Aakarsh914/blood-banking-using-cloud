@@ -60,9 +60,29 @@ export default function Login() {
                 placeholder="••••••••"
               />
             </div>
-            <button className="btn btn-primary btn-animated" type="submit" style={{width: '100%', marginBottom: '24px', padding: '1rem'}}>
+            <button className="btn btn-primary btn-animated" type="submit" style={{width: '100%', marginBottom: '16px', padding: '1rem'}}>
               Log In securely
             </button>
+
+            <div style={{display: 'flex', gap: '8px', marginBottom: '24px'}}>
+              <button 
+                type="button" 
+                className="btn" 
+                style={{flex: 1, backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', fontSize: '0.85rem'}}
+                onClick={() => { setEmail('admin_gmc@test.com'); setPassword('hospital'); }}
+              >
+                Test Admin
+              </button>
+              <button 
+                type="button" 
+                className="btn" 
+                style={{flex: 1, backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', fontSize: '0.85rem'}}
+                onClick={() => { setEmail('donor-1779738612628@test.com'); setPassword('password'); }}
+              >
+                Test Donor
+              </button>
+            </div>
+
             <div style={{textAlign: 'center', fontSize: '0.875rem', color: 'var(--text-secondary)'}}>
               Don't have an account? <Link to="/register" style={{color: 'var(--accent-color)', textDecoration: 'none', fontWeight: 600}}>Register now</Link>
             </div>
