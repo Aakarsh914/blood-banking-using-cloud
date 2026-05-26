@@ -13,7 +13,12 @@ export const AuthContext = createContext({
 });
 
 function decodeTokenUser(token) {
-  const payload = JSON.parse(atob(token.split(".")[1]));
+  const base64Url = token.split(".")[1];
+  const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+  const pad = base64.length % 4;
+  const padded = pad ? base64 + "=".repeat(4 - pad) : base64;
+  
+  const payload = JSON.parse(decodeURIComponent(escape(atob(padded))));
   return payload;
 }
 
@@ -31,31 +36,40 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const storedToken = localStorage.getItem("token");
-    if (storedToken) setToken(storedToken);
-    else setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    if (!token) {
-      setUser(null);
-      delete apiClient.defaults.headers.common.Authorization;
-      setLoading(false);
-      return;
-    }
-
-    localStorage.setItem("token", token);
-    apiClient.defaults.headers.common.Authorization = `Bearer ${token}`;
-
-    if (!user) {
+    if (storedToken) {
+      setToken(storedToken);
+      apiClient.defaults.headers.common.Authorization = `Bearer ${storedToken}`;
       try {
-        setUser(decodeTokenUser(token));
+        const decodedUser = decodeTokenUser(storedToken);
+        setUser(decodedUser);
       } catch (e) {
-        console.error("Invalid token", e);
-        logout();
+        console.error("Invalid token on load", e);
+        localStorage.removeItem("token");
+        delete apiClient.defaults.headers.common.Authorization;
       }
     }
     setLoading(false);
-  }, [token, user, logout]);
+  }, []);
+
+  useEffect(() => {
+    if (loading) return; // Skip updates during initial mount
+    
+    if (token) {
+      localStorage.setItem("token", token);
+      apiClient.defaults.headers.common.Authorization = `Bearer ${token}`;
+      if (!user) {
+        try {
+          setUser(decodeTokenUser(token));
+        } catch (e) {
+          console.error("Invalid token", e);
+          logout();
+        }
+      }
+    } else {
+      setUser(null);
+      delete apiClient.defaults.headers.common.Authorization;
+    }
+  }, [token, user, loading, logout]);
 
   const login = async () => {
     throw new Error("Use the login page form to sign in.");

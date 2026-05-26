@@ -11,6 +11,14 @@ export const AuthContext = createContext({
   loading: true
 });
 
+function decodeTokenUser(token) {
+  const base64Url = token.split(".")[1];
+  const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+  const pad = base64.length % 4;
+  const padded = pad ? base64 + "=".repeat(4 - pad) : base64;
+  return JSON.parse(decodeURIComponent(escape(atob(padded))));
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem("token") || null);
@@ -23,7 +31,7 @@ export function AuthProvider({ children }) {
       
       if (!user) {
         try {
-          const payload = JSON.parse(atob(token.split('.')[1]));
+          const payload = decodeTokenUser(token);
           setUser(payload);
         } catch (e) {
           console.error("Invalid token", e);
