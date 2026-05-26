@@ -103,25 +103,37 @@ export default function Home() {
   useEffect(() => {
     if (!user) return;
 
-    const channel = supabase
-      .channel("public:blood_requests")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "blood_requests" }, (payload) => {
-        const data = payload.new;
-        if (data.urgency === "CRITICAL") {
-          setToast({
-            type: "SOS_ALERT",
-            message: `🚨 CRITICAL SOS: New request for ${data.units} Units of ${data.bloodGroup} urgently!`,
-            requestId: data.id,
-            requesterId: data.requesterId
-          });
-          loadData();
-          setTimeout(() => setToast(null), 15000);
-        }
-      })
-      .subscribe();
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+    if (!supabaseUrl || !supabaseKey || supabaseUrl.includes("dummy")) {
+      return undefined;
+    }
+
+    let channel;
+    try {
+      channel = supabase
+        .channel("public:blood_requests")
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "blood_requests" }, (payload) => {
+          const data = payload.new;
+          if (data.urgency === "CRITICAL") {
+            setToast({
+              type: "SOS_ALERT",
+              message: `🚨 CRITICAL SOS: New request for ${data.units} Units of ${data.bloodGroup} urgently!`,
+              requestId: data.id,
+              requesterId: data.requesterId
+            });
+            loadData();
+            setTimeout(() => setToast(null), 15000);
+          }
+        })
+        .subscribe();
+    } catch (err) {
+      console.warn("Supabase realtime disabled:", err);
+      return undefined;
+    }
 
     return () => {
-      supabase.removeChannel(channel);
+      if (channel) supabase.removeChannel(channel);
     };
   }, [user]);
 

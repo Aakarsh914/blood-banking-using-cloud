@@ -1,7 +1,6 @@
 "use client";
-import { createContext, useState, useEffect } from "react";
+import { createContext, useState, useEffect, useCallback } from "react";
 import apiClient from "../services/apiClient";
-import { formatApiError } from "@/lib/formatApiError";
 
 export const AuthContext = createContext({
   user: null,
@@ -13,95 +12,66 @@ export const AuthContext = createContext({
   loading: true
 });
 
+function decodeTokenUser(token) {
+  const payload = JSON.parse(atob(token.split(".")[1]));
+  return payload;
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const storedToken = localStorage.getItem("token");
-    if (storedToken) setToken(storedToken);
+  const logout = useCallback(() => {
+    setToken(null);
+    setUser(null);
+    localStorage.removeItem("token");
+    delete apiClient.defaults.headers.common.Authorization;
   }, []);
 
   useEffect(() => {
-    if (token) {
-      localStorage.setItem("token", token);
-      apiClient.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-      
-      if (!user) {
-        try {
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          setUser(payload);
-        } catch (e) {
-          console.error("Invalid token", e);
-          logout();
-        }
-      }
-    } else {
-      localStorage.removeItem("token");
-      delete apiClient.defaults.headers.common["Authorization"];
+    const storedToken = localStorage.getItem("token");
+    if (storedToken) setToken(storedToken);
+    else setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (!token) {
       setUser(null);
+      delete apiClient.defaults.headers.common.Authorization;
+      setLoading(false);
+      return;
+    }
+
+    localStorage.setItem("token", token);
+    apiClient.defaults.headers.common.Authorization = `Bearer ${token}`;
+
+    if (!user) {
+      try {
+        setUser(decodeTokenUser(token));
+      } catch (e) {
+        console.error("Invalid token", e);
+        logout();
+      }
     }
     setLoading(false);
-  }, [token]);
+  }, [token, user, logout]);
 
-  const login = async (email, password) => {
-    const trimmedEmail = String(email ?? "").trim().toLowerCase();
-    const trimmedPassword = String(password ?? "").trim();
-    try {
-      delete apiClient.defaults.headers.common.Authorization;
-      localStorage.removeItem("token");
-      const res = await apiClient.post("/auth/login", {
-        email: trimmedEmail,
-        password: trimmedPassword
-      });
-      if (!res.data?.token || !res.data?.user) {
-        throw new Error("Login response was incomplete. Redeploy the latest app and try again.");
-      }
-      setUser(res.data.user);
-      setToken(res.data.token);
-      setLoading(false);
-    } catch (err) {
-      const message = formatApiError(err);
-      const error = new Error(message);
-      error.cause = err;
-      throw error;
-    }
+  const login = async () => {
+    throw new Error("Use the login page form to sign in.");
   };
 
-  const requestOtp = async (email) => {
-    try {
-      const res = await apiClient.post("/auth/request-otp", {
-        email: String(email ?? "").trim().toLowerCase()
-      });
-      return res.data;
-    } catch (err) {
-      const message = formatApiError(err);
-      const error = new Error(message);
-      error.cause = err;
-      throw error;
-    }
+  const requestOtp = async () => {
+    throw new Error("Use the register page to request an OTP.");
   };
 
-  const register = async ({ name, email, password, role, hospitalId, bloodGroup, otp }) => {
-    try {
-      await apiClient.post("/auth/register", { name, email, password, role, hospitalId, bloodGroup, otp });
-    } catch (err) {
-      const message = formatApiError(err);
-      const error = new Error(message);
-      error.cause = err;
-      throw error;
-    }
-  };
-
-  const logout = () => {
-    setToken(null);
-    setUser(null);
+  const register = async () => {
+    throw new Error("Use the register page to create an account.");
   };
 
   return (
     <AuthContext.Provider value={{ user, token, login, requestOtp, register, logout, loading }}>
-        {children}
+      {children}
     </AuthContext.Provider>
   );
 }

@@ -1,7 +1,9 @@
+"use client";
+
 /**
- * Auth calls via fetch (same origin) — avoids axios edge cases in the browser.
+ * Auth calls via fetch (same origin).
  */
-export async function apiPost(path, body) {
+async function apiPost(path, body) {
   const res = await fetch(`/api${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -42,11 +44,13 @@ export async function requestOtpEmail(email) {
 
 export async function registerAccount(payload) {
   return apiPost("/auth/register", {
-    ...payload,
-    email: String(payload.email).trim().toLowerCase(),
-    name: String(payload.name).trim(),
-    password: String(payload.password).trim(),
-    otp: String(payload.otp).trim()
+    name: String(payload.name ?? "").trim(),
+    email: String(payload.email ?? "").trim().toLowerCase(),
+    password: String(payload.password ?? "").trim(),
+    role: payload.role,
+    otp: String(payload.otp ?? "").trim(),
+    hospitalId: payload.hospitalId,
+    bloodGroup: payload.bloodGroup
   });
 }
 

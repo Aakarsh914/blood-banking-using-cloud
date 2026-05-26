@@ -1,7 +1,29 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { registerAccount, requestOtpEmail } from "@/lib/authApi";
+
+async function postJson(path, body) {
+  const res = await fetch(`/api${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    cache: "no-store"
+  });
+  const text = await res.text();
+  let data = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new Error(`Server error (${res.status}).`);
+    }
+  }
+  if (!res.ok) {
+    const hint = data?.hint ? ` ${data.hint}` : "";
+    throw new Error((data?.error || `Request failed (HTTP ${res.status})`) + hint);
+  }
+  return data;
+}
 
 export default function Register() {
   const [step, setStep] = useState(1);
@@ -26,7 +48,7 @@ export default function Register() {
       const email = form.email.trim().toLowerCase();
       if (!email) throw new Error("Email is required");
       setForm((f) => ({ ...f, email }));
-      await requestOtpEmail(email);
+      await postJson("/auth/request-otp", { email });
       setStep(2);
       setOtpHint("Check your inbox and spam folder. OTP expires in 10 minutes.");
     } catch (err) {
@@ -46,12 +68,12 @@ export default function Register() {
     setError("");
     setBusy(true);
     try {
-      await registerAccount({
-        name: form.name,
-        email: form.email,
-        password: form.password,
+      await postJson("/auth/register", {
+        name: form.name.trim(),
+        email: form.email.trim().toLowerCase(),
+        password: form.password.trim(),
         role: form.role,
-        otp: form.otp,
+        otp: form.otp.trim(),
         hospitalId: form.role === "HOSPITAL" ? Number(form.hospitalId) : undefined,
         bloodGroup: form.role === "DONOR" || form.role === "RECEIVER" ? form.bloodGroup : undefined
       });

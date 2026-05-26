@@ -2,7 +2,6 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { loginRequest, saveSession } from "@/lib/authApi";
 
 function LoginContent() {
   const searchParams = useSearchParams();
@@ -29,14 +28,38 @@ function LoginContent() {
     setSubmitting(true);
     try {
       localStorage.removeItem("token");
-      const data = await loginRequest(email, password);
+      const trimmedEmail = email.trim().toLowerCase();
+      const trimmedPassword = password.trim();
+
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: trimmedEmail, password: trimmedPassword }),
+        cache: "no-store"
+      });
+
+      const text = await res.text();
+      let data = null;
+      if (text) {
+        try {
+          data = JSON.parse(text);
+        } catch {
+          throw new Error(`Server error (${res.status}). Open /api/setup-check in a new tab.`);
+        }
+      }
+
+      if (!res.ok) {
+        const hint = data?.hint ? ` ${data.hint}` : "";
+        throw new Error((data?.error || `Login failed (HTTP ${res.status})`) + hint);
+      }
       if (!data?.token) {
         throw new Error("Login succeeded but no token was returned.");
       }
-      saveSession(data.token);
+
+      localStorage.setItem("token", data.token);
       window.location.href = "/";
     } catch (err) {
-      setError(err.message || "Login failed");
+      setError(err?.message || "Login failed");
     } finally {
       setSubmitting(false);
     }
