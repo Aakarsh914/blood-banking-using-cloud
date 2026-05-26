@@ -70,8 +70,17 @@ export function AuthProvider({ children }) {
   };
 
   const requestOtp = async (email) => {
-    const res = await apiClient.post("/auth/request-otp", { email });
-    return res.data;
+    try {
+      const res = await apiClient.post("/auth/request-otp", {
+        email: String(email ?? "").trim().toLowerCase()
+      });
+      return res.data;
+    } catch (err) {
+      const message = formatApiError(err);
+      const error = new Error(message);
+      error.cause = err;
+      throw error;
+    }
   };
 
   const register = async ({ name, email, password, role, hospitalId, bloodGroup, otp }) => {

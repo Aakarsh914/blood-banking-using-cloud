@@ -20,11 +20,21 @@ export async function POST(req) {
 
   try {
     let { name, email, password, role = "DONOR", hospitalId, bloodGroup, otp } = await req.json();
+    name = typeof name === "string" ? name.trim() : "";
+    email = typeof email === "string" ? email.trim().toLowerCase() : "";
+    password = typeof password === "string" ? password.trim() : "";
+    otp = otp != null ? String(otp).trim() : "";
+    role = String(role || "DONOR").toUpperCase();
+
     if (!name || !email || !password || !otp) {
       return NextResponse.json({ error: "name, email, password, and otp are required" }, { status: 400 });
     }
-    email = email.toLowerCase();
-    role = String(role).toUpperCase();
+
+    if (role === "DONOR" || role === "RECEIVER") {
+      if (!bloodGroup) {
+        return NextResponse.json({ error: "Blood group is required for donors and receivers" }, { status: 400 });
+      }
+    }
 
     if (!ALLOWED_ROLES.includes(role)) {
       return NextResponse.json({ error: `Invalid role: ${role}` }, { status: 400 });

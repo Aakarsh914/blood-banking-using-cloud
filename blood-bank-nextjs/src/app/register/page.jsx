@@ -26,17 +26,13 @@ export default function Register() {
     setOtpHint("");
     setSendingOtp(true);
     try {
-      await requestOtp(form.email);
+      const email = form.email.trim().toLowerCase();
+      setForm((f) => ({ ...f, email }));
+      await requestOtp(email);
       setStep(2);
       setOtpHint("Check your inbox and spam folder. OTP expires in 10 minutes.");
     } catch (err) {
-      if (err.code === "ECONNABORTED") {
-        setError("Request timed out. Check your connection and tap Resend OTP.");
-      } else if (!err.response) {
-        setError("Cannot reach the API. Check your internet, then try again.");
-      } else {
-        setError(err.response?.data?.error || "Failed to request OTP.");
-      }
+      setError(err.message || "Failed to request OTP.");
     } finally {
       setSendingOtp(false);
     }
@@ -53,6 +49,10 @@ export default function Register() {
     try {
       await register({
         ...form,
+        email: form.email.trim().toLowerCase(),
+        name: form.name.trim(),
+        password: form.password.trim(),
+        otp: form.otp.trim(),
         hospitalId: form.role === 'HOSPITAL' ? Number(form.hospitalId) : undefined,
         bloodGroup: (form.role === 'DONOR' || form.role === 'RECEIVER') ? form.bloodGroup : undefined
       });
