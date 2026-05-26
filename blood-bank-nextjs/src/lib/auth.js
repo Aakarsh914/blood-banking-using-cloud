@@ -16,17 +16,26 @@ export async function getUserFromRequest(req) {
     if (!user) return null;
     const { passwordHash, ...userWithoutPassword } = user;
     return userWithoutPassword;
-  } catch {
-    return null;
+  } catch (err) {
+    console.error("Auth error in getUserFromRequest:", err);
+    if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
+      return null;
+    }
+    throw err; // Database connection error
   }
 }
 
 export async function requireUser(req) {
-  const user = await getUserFromRequest(req);
-  if (!user) {
-    return { user: null, error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+  try {
+    const user = await getUserFromRequest(req);
+    if (!user) {
+      return { user: null, error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+    }
+    return { user, error: null };
+  } catch (err) {
+    console.error("Database error in requireUser:", err);
+    return { user: null, error: NextResponse.json({ error: "Database connection failed", hint: "Supabase pooler timeout or connection issue." }, { status: 503 }) };
   }
-  return { user, error: null };
 }
 
 export function requireRole(user, roles) {
