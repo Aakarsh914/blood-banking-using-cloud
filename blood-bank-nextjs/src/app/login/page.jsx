@@ -61,7 +61,13 @@ function LoginContent() {
       }
 
       setSession(data.token, data.user);
-      router.push("/");
+      
+      // Wait for React to flush the AuthContext update before navigating.
+      // Otherwise, the Next.js router might mount the Home page while 'user' is still null,
+      // causing an immediate redirect back to /login.
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 100);
     } catch (err) {
       setError(err?.message || "Login failed");
     } finally {
