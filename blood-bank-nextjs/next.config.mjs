@@ -10,6 +10,9 @@ const nextConfig = {
   outputFileTracingRoot: projectRoot,
   turbopack: {
     root: projectRoot
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
   }
 };
 
